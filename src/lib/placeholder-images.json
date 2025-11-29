@@ -1,0 +1,82 @@
+{
+  "placeholderImages": [
+    {
+      "id": "login-hero",
+      "description": "Abstract futuristic gaming environment",
+      "imageUrl": "https://images.unsplash.com/photo-1549455658-4513b53cca49?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxmdXR1cmlzdGljJTIwZ2FtaW5nfGVufDB8fHx8MTc2MzQ4MTE4Nnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "futuristic gaming"
+    },
+    {
+      "id": "user-avatar",
+      "description": "Administrator avatar",
+      "imageUrl": "https://images.unsplash.com/photo-1527203561188-dae1bc1a417f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxwcm9maWxlJTIwcG9ydHJhaXR8ZW58MHx8fHwxNzYzNDY0MjcwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "profile portrait"
+    },
+    {
+      "id": "game-1",
+      "description": "Cover art for Cyberpunk 2077",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202111/3013/cKZ4adpEva0_2048.PNG",
+      "imageHint": "cyberpunk future"
+    },
+    {
+      "id": "game-2",
+      "description": "Cover art for Elden Ring",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202108/0410/0J02fG7p9N2d3p6h4qLg1hP8.png",
+      "imageHint": "fantasy warrior"
+    },
+    {
+      "id": "game-3",
+      "description": "Cover art for Starfield",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202206/0721/q09NA6sW5KCrjgZfeA9WvXb2.png",
+      "imageHint": "space exploration"
+    },
+    {
+      "id": "game-4",
+      "description": "Cover art for Forza Horizon 5",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202309/2000/e953c89a01f5d371f496f30a9118a1a37cbf10d322b7a421.png",
+      "imageHint": "sports car"
+    },
+    {
+      "id": "game-5",
+      "description": "Cover art for EA Sports FC 24",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202307/1010/82ac2542a17b07c875150c95a0247c4c114e59003666f7a6.png",
+      "imageHint": "soccer player"
+    },
+    {
+      "id": "game-6",
+      "description": "Cover art for The Witcher 3: Wild Hunt",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202211/0711/kh4MUIuMmHl2R3oW4q5a0sSX.png",
+      "imageHint": "fantasy character"
+    },
+    {
+      "id": "game-7",
+      "description": "Cover art for Red Dead Redemption 2",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202308/0309/354af796593a203f56a599299d605658e4693895ff3bd354.png",
+      "imageHint": "cowboy western"
+    },
+    {
+      "id": "game-8",
+      "description": "Cover art for Helldivers 2",
+      "imageUrl": "https://image.api.playstation.com/vulcan/ap/rnd/202309/2715/0c1f457e556e4313b567fa4b8401314a5948a33a59560f76.png",
+      "imageHint": "sci-fi soldier"
+    },
+    {
+      "id": "game-9",
+      "description": "Steam Gift Card 10€",
+      "imageUrl": "https://i.ibb.co/hLvzJz3/steam-10.png",
+      "imageHint": "gift card"
+    },
+    {
+      "id": "game-10",
+      "description": "Steam Gift Card 20€",
+      "imageUrl": "https://i.ibb.co/hLvzJz3/steam-10.png",
+      "imageHint": "gift card"
+    },
+    {
+      "id": "game-11",
+      "description": "Steam Gift Card 50€",
+      "imageUrl": "https://i.ibb.co/hLvzJz3/steam-10.png",
+      "imageHint": "gift card"
+    }
+  ]
+}
