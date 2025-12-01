@@ -4,6 +4,9 @@ import { Toaster } from '@/components/ui/toaster';
 import { CartProvider } from '@/hooks/use-cart';
 import { Chatbot } from '@/components/chatbot';
 
+// 👇 1. IMPORTA O AUTH PROVIDER
+import { AuthProvider } from '@/hooks/use-auth';
+
 export const metadata: Metadata = {
   title: 'Games Paradise',
   description: 'O seu paraíso de jogos.',
@@ -23,10 +26,15 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <CartProvider>
-          {children}
-          <Chatbot />
-        </CartProvider>
+        
+        {/* 👇 2. ADICIONA O AUTH PROVIDER AQUI (A envolver tudo) */}
+        <AuthProvider>
+          <CartProvider>
+            {children}
+            <Chatbot />
+          </CartProvider>
+        </AuthProvider>
+
         <Toaster />
       </body>
     </html>

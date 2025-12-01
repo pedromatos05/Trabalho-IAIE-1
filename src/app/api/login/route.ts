@@ -15,21 +15,25 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const emailLimpo = body.email.trim().toLowerCase(); // Limpa espaços e maiúsculas
+    
+    if (!body.email || !body.password) {
+        return NextResponse.json({ error: 'Dados incompletos' }, { status: 400 });
+    }
+
+    const emailLimpo = body.email.trim().toLowerCase(); 
     const passwordInput = body.password;
 
     console.log(`👤 [LOGIN] Procurando na tabela 'TrabalhoIAIE' pelo email: "${emailLimpo}"`);
 
     // 1. BUSCAR UTILIZADOR NA TABELA CERTA
     const { data: user, error } = await supabase
-      .from('TrabalhoIAIE') // <--- 🚨 MUDANÇA IMPORTANTE: O NOME DA TUA TABELA
+      .from('TrabalhoIAIE') 
       .select('*')
-      .eq('email', emailLimpo) // Procura na coluna 'email'
+      .eq('email', emailLimpo) 
       .single();
 
     if (error || !user) {
-      console.log("❌ [LOGIN] Utilizador não encontrado ou erro de tabela.");
-      console.log("   -> Detalhe do erro:", error?.message);
+      console.log("❌ [LOGIN] Utilizador não encontrado.");
       return NextResponse.json({ error: 'Email não registado' }, { status: 401 });
     }
 
@@ -43,15 +47,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Password incorreta' }, { status: 401 });
     }
 
-    console.log("✅ [LOGIN] SUCESSO! Login autorizado.");
+    // 3. VERIFICAR ROLE (ADMIN vs CLIENTE)
+    // Se a coluna 'role' estiver vazia na base de dados, assumimos que é 'customer'
+    const userRole = user.role || 'customer';
+
+    console.log(`✅ [LOGIN] SUCESSO! Tipo de utilizador: ${userRole}`);
 
     return NextResponse.json({ 
       success: true, 
       user: {
         id: user.id,
-        name: user.first_name, // Confirma se a coluna se chama 'first_name' na tabela
+        name: user.first_name, 
         email: user.email,
-        points: user.points_balance || 0 // Confirma se a coluna se chama 'points_balance'
+        points_saldo: user.points_balance || 0, // Corrigi para bater certo com o teu Hook
+        role: userRole // <--- AQUI VAI O PAPEL (admin ou customer)
       } 
     }, { status: 200 });
 

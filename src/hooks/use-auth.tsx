@@ -2,12 +2,13 @@
 
 import React, { createContext, useContext, useState, ReactNode, useMemo, useEffect, useCallback } from 'react';
 
-// 1. Definimos o tipo de Cliente aqui para garantir que bate certo com a API
+// 1. Definição do Tipo de Cliente
 export interface Customer {
   id: string;
   name: string;
   email: string;
   points_saldo: number;
+  role?: string; // Definido aqui ✅
 }
 
 interface AuthContextType {
@@ -16,8 +17,8 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<boolean>;
   logout: () => void;
   updateUser: (user: Customer | null) => void;
-  addPoints: (points: number) => void;
-  spendPoints: (points: number) => void;
+  addPoints: (points: number) => Promise<void>; 
+  spendPoints: (points: number) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,11 +27,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Restaurar sessão ao recarregar a página
   useEffect(() => {
     setLoading(true);
     try {
-        // Tenta ler do localStorage (é melhor que sessionStorage para manter login)
         const storedUser = localStorage.getItem('loggedInUser');
         if (storedUser) {
           setUser(JSON.parse(storedUser));
@@ -42,7 +41,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
   
-  // Função para atualizar estado e memória local
   const updateUser = useCallback((updatedUser: Customer | null) => {
     setUser(updatedUser);
     if (updatedUser) {
@@ -52,12 +50,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // --- A NOVA FUNÇÃO DE LOGIN REAL ---
+  // --- LOGIN ---
   const login = async (email: string, pass: string): Promise<boolean> => {
     setLoading(true);
     
     try {
-        // 1. Chamamos a API que criámos
         const response = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -66,23 +63,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const data = await response.json();
 
-        // 2. Se a API der erro ou sucesso for falso
         if (!response.ok || !data.success) {
             console.warn("Login falhou:", data.error);
             setLoading(false);
             return false;
         }
 
-        // 3. Mapear os dados da API para o formato do Frontend
-        // A API devolve 'points', mas o teu front usa 'points_saldo'
+        // 3. Mapear os dados (AQUI ESTAVA O ERRO)
         const userData: Customer = {
             id: data.user.id,
             name: data.user.name,
             email: data.user.email,
-            points_saldo: data.user.points || 0, // Garante que não vem vazio
+            points_saldo: data.user.points || 0,
+            role: data.user.role // <--- ESTA LINHA FALTAVA! TENS DE ADICIONAR ISTO.
         };
 
-        // 4. Guardar utilizador
         updateUser(userData);
         setLoading(false);
         return true;
@@ -98,18 +93,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updateUser(null);
   };
   
-  // Nota: Estas funções atualizam apenas visualmente. 
-  // Futuramente terás de criar uma API para salvar os pontos na base de dados.
-  const addPoints = useCallback((points: number) => {
+  const updatePointsAPI = async (pointsChange: number) => {
+    if (!user) return;
+
+    try {
+      const response = await fetch('/api/points', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            email: user.email, 
+            pointsChange: pointsChange 
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Quando atualizamos pontos, garantimos que o ROLE não se perde
+        const updatedUser = { 
+            ...user, 
+            points_saldo: data.newBalance,
+            role: user.role // <--- Mantém o role aqui também
+        };
+        updateUser(updatedUser);
+      } else {
+        console.error("Erro ao atualizar pontos:", data.error);
+      }
+    } catch (error) {
+      console.error("Erro de rede ao atualizar pontos:", error);
+    }
+  };
+
+  const addPoints = useCallback(async (points: number) => {
       if (!user || points <= 0) return;
-      const newPoints = (user.points_saldo || 0) + points;
-      updateUser({ ...user, points_saldo: newPoints });
+      await updatePointsAPI(points);
   }, [user, updateUser]);
 
-  const spendPoints = useCallback((points: number) => {
+  const spendPoints = useCallback(async (points: number) => {
       if (!user || points <= 0) return;
-      const newPoints = (user.points_saldo || 0) - points;
-      updateUser({ ...user, points_saldo: Math.max(0, newPoints) });
+      await updatePointsAPI(-points);
   }, [user, updateUser]);
 
   const value = useMemo(() => ({

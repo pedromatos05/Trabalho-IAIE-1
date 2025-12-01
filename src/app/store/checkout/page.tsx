@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { TicketPercent, Trophy, Minus, Plus, Star } from 'lucide-react';
+import { TicketPercent, Trophy, Minus, Plus, Star, Loader2 } from 'lucide-react'; // Adicionei Loader2
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
@@ -22,8 +21,12 @@ export default function CheckoutPage() {
   const { cart, removeFromCart, total, clearCart, updateQuantity } = useCart();
   const router = useRouter();
   const { toast } = useToast();
+  // 1. O addPoints e spendPoints agora são assíncronos (Promises)
   const { user, loading, addPoints, spendPoints } = useAuth();
+  
   const [usePointsDiscount, setUsePointsDiscount] = useState(false);
+  // 2. Novo estado para bloquear o botão durante o processamento
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -42,47 +45,67 @@ export default function CheckoutPage() {
   const finalTotal = total - discountFromPoints;
   const pointsToGain = Math.floor(finalTotal);
 
-  const handlePlaceOrder = () => {
+  // 3. A função agora é ASYNC para esperar pelo Supabase
+  const handlePlaceOrder = async () => {
     if (!user) return;
     
-    let pointsSpent = 0;
+    setIsProcessing(true); // Bloqueia o botão
 
-    // 1. Handle items bought directly with points
-    const pointsItems = cart.filter(item => item.isPointsPurchase);
-    if (pointsItems.length > 0) {
-        const totalPointsCost = pointsItems.reduce((acc, item) => acc + Math.floor(item.product.price * 50), 0);
-        if (user.points_saldo >= totalPointsCost) {
-            pointsSpent += totalPointsCost;
-        } else {
-            toast({
-                variant: 'destructive',
-                title: 'Erro na Compra',
-                description: 'Pontos insuficientes para os itens selecionados.',
-            });
-            return; // Stop the transaction
+    try {
+        let pointsSpent = 0;
+
+        // 3.1. Calcular custo em pontos (Produtos)
+        const pointsItems = cart.filter(item => item.isPointsPurchase);
+        if (pointsItems.length > 0) {
+            const totalPointsCost = pointsItems.reduce((acc, item) => acc + Math.floor(item.product.price * 50), 0);
+            if (user.points_saldo >= totalPointsCost) {
+                pointsSpent += totalPointsCost;
+            } else {
+                toast({
+                    variant: 'destructive',
+                    title: 'Erro na Compra',
+                    description: 'Pontos insuficientes para os itens selecionados.',
+                });
+                setIsProcessing(false);
+                return; 
+            }
         }
-    }
-    
-    // 2. Handle 20% discount
-    if (usePointsDiscount) {
-        pointsSpent += pointsToUseForDiscount;
-    }
+        
+        // 3.2. Calcular custo em pontos (Desconto)
+        if (usePointsDiscount) {
+            pointsSpent += pointsToUseForDiscount;
+        }
 
-    // 3. Spend points
-    if (pointsSpent > 0) {
-      spendPoints(pointsSpent);
+        // 3.3. Executar transações (AWAIT é crucial aqui)
+        // Primeiro gastamos os pontos
+        if (pointsSpent > 0) {
+            await spendPoints(pointsSpent);
+        }
+        
+        // Depois damos os pontos novos (se houver)
+        if (pointsToGain > 0) {
+            await addPoints(pointsToGain);
+        }
+        
+        // 4. Sucesso!
+        toast({
+            title: 'Compra Realizada!',
+            description: `Obrigado pela sua compra. Ganhou ${pointsToGain} pontos!`,
+        });
+        
+        clearCart();
+        router.push('/store/account/orders');
+
+    } catch (error) {
+        console.error("Erro no checkout:", error);
+        toast({
+            variant: 'destructive',
+            title: 'Erro ao processar',
+            description: 'Ocorreu um erro ao comunicar com o servidor. Tente novamente.',
+        });
+    } finally {
+        setIsProcessing(false); // Desbloqueia o botão (se algo falhar)
     }
-    
-    // 4. Add earned points from cash total
-    addPoints(pointsToGain);
-    
-    toast({
-      title: 'Compra Realizada!',
-      description: `Obrigado pela sua compra. Ganhou ${pointsToGain} pontos!`,
-    });
-    
-    clearCart();
-    router.push('/store/account/orders');
   };
   
   if (loading || !user) {
@@ -94,7 +117,6 @@ export default function CheckoutPage() {
   }
   
   const hasPointsPurchase = cart.some(item => item.isPointsPurchase);
-
 
   return (
     <div className="container mx-auto px-4 md:px-6 py-12">
@@ -111,16 +133,16 @@ export default function CheckoutPage() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Nome</Label>
-                    <Input id="name" defaultValue={`${user.firstName} ${user.lastName}`} />
+                    <Input id="name" defaultValue={`${user.name}`} disabled /> {/* Ajustei para user.name */}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" defaultValue={user.email} />
+                    <Input id="email" type="email" defaultValue={user.email} disabled />
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="address">Morada</Label>
-                  <Input id="address" defaultValue={user.address} />
+                  <Input id="address" placeholder="Insira a sua morada..." />
                 </div>
               </div>
 
@@ -130,15 +152,15 @@ export default function CheckoutPage() {
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">Método de Pagamento</h3>
                 <RadioGroup defaultValue="credit-card" className="space-y-2">
-                  <Label className="flex items-center gap-3 p-4 border rounded-md has-[input:checked]:border-primary">
+                  <Label className="flex items-center gap-3 p-4 border rounded-md has-[input:checked]:border-primary cursor-pointer">
                     <RadioGroupItem value="credit-card" id="credit-card" />
                     <span>Cartão de Crédito</span>
                   </Label>
-                  <Label className="flex items-center gap-3 p-4 border rounded-md has-[input:checked]:border-primary">
+                  <Label className="flex items-center gap-3 p-4 border rounded-md has-[input:checked]:border-primary cursor-pointer">
                     <RadioGroupItem value="paypal" id="paypal" />
-                     <span>PayPal</span>
+                      <span>PayPal</span>
                   </Label>
-                  <Label className="flex items-center gap-3 p-4 border rounded-md has-[input:checked]:border-primary">
+                  <Label className="flex items-center gap-3 p-4 border rounded-md has-[input:checked]:border-primary cursor-pointer">
                     <RadioGroupItem value="mbway" id="mbway" />
                     <span>MB Way</span>
                   </Label>
@@ -158,7 +180,15 @@ export default function CheckoutPage() {
                 {cart.length > 0 ? cart.map(item => (
                   <div key={item.product.id} className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <Image src={item.product.imageUrl} alt={item.product.name} width={64} height={64} className="rounded-md" />
+                      {/* Ajusta o src da imagem se necessário */}
+                      <div className="relative h-16 w-16 overflow-hidden rounded-md border">
+                         <Image 
+                            src={item.product.imageUrl || '/placeholder.png'} 
+                            alt={item.product.name} 
+                            fill
+                            className="object-cover"
+                         />
+                      </div>
                       <div>
                         <p className="font-medium">{item.product.name}</p>
                         {item.isPointsPurchase ? (
@@ -169,17 +199,17 @@ export default function CheckoutPage() {
                             <p className="text-sm text-muted-foreground">€{item.product.price.toFixed(2)} x {item.quantity}</p>
                         )}
                          <div className="flex items-center gap-2 mt-2">
-                            <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQuantity(item.product.id, item.quantity - 1)} disabled={item.isPointsPurchase}>
+                            <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQuantity(item.product.id, item.quantity - 1)} disabled={item.isPointsPurchase || isProcessing}>
                                 <Minus className="h-3 w-3" />
                             </Button>
                             <span className="text-sm font-medium">{item.quantity}</span>
-                             <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQuantity(item.product.id, item.quantity + 1)} disabled={item.isPointsPurchase}>
+                             <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQuantity(item.product.id, item.quantity + 1)} disabled={item.isPointsPurchase || isProcessing}>
                                 <Plus className="h-3 w-3" />
                             </Button>
                         </div>
                       </div>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => removeFromCart(item.product.id)}>Remover</Button>
+                    <Button variant="ghost" size="sm" onClick={() => removeFromCart(item.product.id)} disabled={isProcessing}>Remover</Button>
                   </div>
                 )) : <p className="text-muted-foreground text-sm">O seu carrinho está vazio.</p>}
                 <Separator />
@@ -200,8 +230,14 @@ export default function CheckoutPage() {
                 </div>
               </CardContent>
               <CardFooter>
-                 <Button className="w-full" onClick={handlePlaceOrder} disabled={cart.length === 0}>
-                  Confirmar e Pagar
+                 <Button className="w-full" onClick={handlePlaceOrder} disabled={cart.length === 0 || isProcessing}>
+                  {isProcessing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando...
+                      </>
+                  ) : (
+                      "Confirmar e Pagar"
+                  )}
                 </Button>
               </CardFooter>
             </Card>
@@ -231,7 +267,7 @@ export default function CheckoutPage() {
                             id="use-points"
                             checked={usePointsDiscount}
                             onCheckedChange={setUsePointsDiscount}
-                            disabled={user.points_saldo < pointsToUseForDiscount || total === 0 || hasPointsPurchase}
+                            disabled={user.points_saldo < pointsToUseForDiscount || total === 0 || hasPointsPurchase || isProcessing}
                         />
                     </div>
                      {hasPointsPurchase && <p className="text-xs text-amber-500">O desconto de 20% não pode ser combinado com uma compra direta por pontos.</p>}
