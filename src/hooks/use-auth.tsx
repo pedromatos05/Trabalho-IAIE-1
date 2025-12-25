@@ -1,5 +1,6 @@
 'use client';
 
+import { clear } from 'console';
 import React, { createContext, useContext, useState, ReactNode, useMemo, useEffect, useCallback } from 'react';
 
 // 1. Definição do Tipo de Cliente
@@ -8,11 +9,12 @@ export interface Customer {
   name: string;
   email: string;
   points_saldo: number;
-  role?: string; // Definido aqui ✅
+  role?: string;
 }
 
 interface AuthContextType {
   user: Customer | null;
+  token: string | null;
   loading: boolean;
   login: (email: string, pass: string) => Promise<boolean>;
   logout: () => void;
@@ -25,18 +27,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Customer | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
     try {
         const storedUser = localStorage.getItem('loggedInUser');
-        if (storedUser) {
+        const storedToken = localStorage.getItem('authToken');
+
+        if (storedUser && storedToken) {
           setUser(JSON.parse(storedUser));
+          setToken(storedToken);
         }
     } catch (error) {
         console.error("Erro ao ler sessão:", error);
         localStorage.removeItem('loggedInUser');
+        localStorage.removeItem('authToken');
     }
     setLoading(false);
   }, []);
@@ -47,6 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('loggedInUser', JSON.stringify(updatedUser));
     } else {
         localStorage.removeItem('loggedInUser');
+        localStorage.removeItem('authToken');
+        setToken(null);
     }
   }, []);
 
@@ -69,13 +78,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return false;
         }
 
-        // 3. Mapear os dados (AQUI ESTAVA O ERRO)
+        // Guardar Token
+        const receivedToken = data.token; 
+        if (receivedToken) {
+            localStorage.setItem('authToken', receivedToken);
+            setToken(receivedToken);
+        }
+
         const userData: Customer = {
             id: data.user.id,
             name: data.user.name,
             email: data.user.email,
             points_saldo: data.user.points || 0,
-            role: data.user.role // <--- ESTA LINHA FALTAVA! TENS DE ADICIONAR ISTO.
+            role: data.user.role 
         };
 
         updateUser(userData);
@@ -91,15 +106,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     updateUser(null);
+    setToken(null);
+    localStorage.removeItem('authToken');
   };
   
+  // --- ATUALIZAR PONTOS (Endpoint Alterado) ---
   const updatePointsAPI = async (pointsChange: number) => {
-    if (!user) return;
+    if (!user || !token) {
+        console.error("Tentativa de atualizar pontos sem login ou token.");
+        return;
+    }
 
     try {
-      const response = await fetch('/api/points', {
+      // 🔄 ALTERAÇÃO AQUI: Mudámos de '/api/points' para '/api/points/update'
+      const response = await fetch('/api/points/update', { 
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}` // Token enviado no header
+        },
         body: JSON.stringify({ 
             email: user.email, 
             pointsChange: pointsChange 
@@ -109,14 +134,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Quando atualizamos pontos, garantimos que o ROLE não se perde
         const updatedUser = { 
             ...user, 
             points_saldo: data.newBalance,
-            role: user.role // <--- Mantém o role aqui também
         };
         updateUser(updatedUser);
       } else {
+        if (response.status === 401) {
+            logout(); // Token expirado ou inválido
+        }
         console.error("Erro ao atualizar pontos:", data.error);
       }
     } catch (error) {
@@ -127,22 +153,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const addPoints = useCallback(async (points: number) => {
       if (!user || points <= 0) return;
       await updatePointsAPI(points);
-  }, [user, updateUser]);
+  }, [user, token, updateUser]);
 
   const spendPoints = useCallback(async (points: number) => {
       if (!user || points <= 0) return;
       await updatePointsAPI(-points);
-  }, [user, updateUser]);
+  }, [user, token, updateUser]);
 
   const value = useMemo(() => ({
     user,
+    token,
     loading,
     login,
     logout,
     updateUser,
     addPoints,
     spendPoints,
-  }), [user, loading, login, logout, updateUser, addPoints, spendPoints]);
+  }), [user, token, loading, login, logout, updateUser, addPoints, spendPoints]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

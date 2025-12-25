@@ -1,49 +1,68 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// ✅ Configuração do Supabase (A mesma do Login)
-const SUPABASE_URL = 'https://fgeuwpcystjvvlfkwrjw.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnZXV3cGN5c3RqdnZsZmt3cmp3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDM2NDQ1NiwiZXhwIjoyMDc5OTQwNDU2fQ.iJCOxA3FBbZMTooU21BhF7PeRByBG7S0aoQGc4XISys'; // ⚠️ Cola aqui a tua Service Role Key (a mesma do login)
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { email, pointsChange } = body;
+    // 1. 🔒 SEGURANÇA: Ler o Token do Cabeçalho
+    const authHeader = request.headers.get('authorization');
+    
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Falta o token de autenticação' }, { status: 401 });
+    }
 
-    if (!email || pointsChange === undefined) {
+    // O header vem como "Bearer eyJhbGci...", queremos só a parte depois do espaço
+    const token = authHeader.replace('Bearer ', '');
+
+    // 2. 🕵️‍♂️ VERIFICAÇÃO: Perguntar ao Supabase quem é o dono deste token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !user) {
+        return NextResponse.json({ error: 'Token inválido ou expirado' }, { status: 401 });
+    }
+
+    // AQUI ESTÁ O TRUQUE ANTI-HACKER:
+    // Ignoramos o email que vem no body. Usamos o email garantido pelo token.
+    const emailSeguro = user.email;
+
+    // Lemos apenas a mudança de pontos do corpo
+    const body = await request.json();
+    const { pointsChange } = body;
+
+    if (pointsChange === undefined) {
       return NextResponse.json({ error: 'Dados incompletos' }, { status: 400 });
     }
 
-    console.log(`💎 [API PONTOS] A alterar ${pointsChange} pontos para: ${email}`);
+    console.log(`💎 [API PONTOS] User verificado (${emailSeguro}) a alterar ${pointsChange} pontos.`);
 
-    // 1. Buscar o utilizador e o saldo atual
-    const { data: user, error: fetchError } = await supabase
-      .from('TrabalhoIAIE') // ⚠️ Confirma se é este o nome da tua tabela
+    // 3. Buscar o utilizador na tabela (usando o email seguro)
+    const { data: userData, error: fetchError } = await supabase
+      .from('TrabalhoIAIE')
       .select('points_balance')
-      .eq('email', email)
+      .eq('email', emailSeguro) // <--- USAMOS A VARIÁVEL SEGURA AQUI
       .single();
 
-    if (fetchError || !user) {
-      console.error("Erro ao buscar user:", fetchError);
-      return NextResponse.json({ error: 'Utilizador não encontrado' }, { status: 404 });
+    if (fetchError || !userData) {
+      return NextResponse.json({ error: 'Utilizador não encontrado na BD' }, { status: 404 });
     }
 
-    // 2. Calcular novo saldo
-    const currentPoints = user.points_balance || 0;
+    // 4. Calcular novo saldo
+    const currentPoints = userData.points_balance || 0;
     const newBalance = currentPoints + pointsChange;
 
-    // Proteção: Não deixar o saldo ficar negativo
     if (newBalance < 0) {
        return NextResponse.json({ error: 'Saldo insuficiente' }, { status: 400 });
     }
 
-    // 3. Gravar na Base de Dados
+    // 5. Gravar na Base de Dados
     const { error: updateError } = await supabase
       .from('TrabalhoIAIE')
       .update({ points_balance: newBalance })
-      .eq('email', email);
+      .eq('email', emailSeguro); // <--- E AQUI TAMBÉM
 
     if (updateError) {
       throw updateError;
