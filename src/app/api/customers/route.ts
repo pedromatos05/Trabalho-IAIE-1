@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     };
 
     // 5. Enviar para o Webhook do n8n
-    const n8nUrl = 'https://pedromatos05.app.n8n.cloud/webhook-test/criar'; // Confirma se o link é este
+    const n8nUrl = 'http://193.136.11.144:5609/webhook/d3e77174-680b-4a85-b606-c416e282538b'; // Confirma se o link é este
     
     const response = await fetch(n8nUrl, {
       method: 'POST',

@@ -31,6 +31,7 @@ export default function StorePage() {
             className="object-cover object-top opacity-20"
             data-ai-hint={heroImage.imageHint}
             priority
+            unoptimized={true}
           />
         )}
         <div className="relative z-10 p-6 max-w-3xl mx-auto">

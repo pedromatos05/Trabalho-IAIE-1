@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import * as bcrypt from 'bcryptjs';
+import * as jwt from 'jsonwebtoken'; 
 
-// ✅ URL DO SUPABASE (Sem a barra '/' no final)
-const SUPABASE_URL = 'https://fgeuwpcystjvvlfkwrjw.supabase.co';
-// ✅ A TUA CHAVE SERVICE ROLE (Mestra)
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnZXV3cGN5c3RqdnZsZmt3cmp3Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDM2NDQ1NiwiZXhwIjoyMDc5OTQwNDU2fQ.iJCOxA3FBbZMTooU21BhF7PeRByBG7S0aoQGc4XISys'; 
+// --- ALTERAÇÃO AQUI ---
+// Em vez de strings fixas, vamos buscar ao .env.local
+// O '!' no final serve para dizer ao TypeScript que estas variáveis existem.
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!; // <--- Esta chave resolve o erro "User not found"
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+// ----------------------
 
 export async function POST(request: Request) {
   console.log("------------------------------------------------");
@@ -25,7 +28,7 @@ export async function POST(request: Request) {
 
     console.log(`👤 [LOGIN] Procurando na tabela 'TrabalhoIAIE' pelo email: "${emailLimpo}"`);
 
-    // 1. BUSCAR UTILIZADOR NA TABELA CERTA
+    // 1. BUSCAR UTILIZADOR
     const { data: user, error } = await supabase
       .from('TrabalhoIAIE') 
       .select('*')
@@ -37,8 +40,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Email não registado' }, { status: 401 });
     }
 
-    console.log("✅ [LOGIN] Encontrado! ID:", user.id);
-
     // 2. COMPARAR PASSWORDS
     const passwordMatch = await bcrypt.compare(passwordInput, user.password);
 
@@ -47,20 +48,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Password incorreta' }, { status: 401 });
     }
 
-    // 3. VERIFICAR ROLE (ADMIN vs CLIENTE)
-    // Se a coluna 'role' estiver vazia na base de dados, assumimos que é 'customer'
     const userRole = user.role || 'customer';
 
-    console.log(`✅ [LOGIN] SUCESSO! Tipo de utilizador: ${userRole}`);
+    // 3. GERAR UM TOKEN SIMPLES
+    const tokenSimulado = `user-token-${user.id}-${Date.now()}`;
 
+    console.log(`✅ [LOGIN] SUCESSO! User: ${user.first_name}, Pontos na DB: ${user.points_balance}`);
+
+    // 4. RETORNAR RESPOSTA CORRIGIDA
     return NextResponse.json({ 
       success: true, 
+      token: tokenSimulado, 
       user: {
         id: user.id,
         name: user.first_name, 
         email: user.email,
-        points_saldo: user.points_balance || 0, // Corrigi para bater certo com o teu Hook
-        role: userRole // <--- AQUI VAI O PAPEL (admin ou customer)
+        points: user.points_balance || 0, 
+        role: userRole 
       } 
     }, { status: 200 });
 

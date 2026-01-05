@@ -1,8 +1,8 @@
-
 import { PlaceHolderImages } from './placeholder-images';
 
 export type Product = {
   id: string;
+  moloni_id: number; // Novo campo para o ID do Moloni
   name: string;
   genre: string;
   description: string;
@@ -54,6 +54,7 @@ const gameImages = PlaceHolderImages.filter(img => img.id.startsWith('game-'));
 export const products: Product[] = [
   {
     id: 'PROD001',
+    moloni_id: 217868710,
     name: 'Cyberpunk 2077',
     genre: 'RPG',
     description: 'Cyberpunk 2077 is an open-world, action-adventure RPG set in the megalopolis of Night City, where you play as a cyberpunk mercenary wrapped up in a do-or-die fight for survival. Improved and featuring all-new free additional content, customize your character and playstyle as you take on jobs, build a reputation, and unlock upgrades.',
@@ -65,6 +66,7 @@ export const products: Product[] = [
   },
   {
     id: 'PROD002',
+    moloni_id: 217868713,
     name: 'Elden Ring',
     genre: 'Fantasy',
     description: 'THE NEW FANTASY ACTION RPG. Rise, Tarnished, and be guided by grace to brandish the power of the Elden Ring and become an Elden Lord in the Lands Between. A vast world where open fields with a variety of situations and huge dungeons with complex and three-dimensional designs are seamlessly connected.',
@@ -76,6 +78,7 @@ export const products: Product[] = [
   },
   {
     id: 'PROD003',
+    moloni_id: 217868718,
     name: 'Starfield',
     genre: 'Sci-Fi',
     description: 'Starfield is the first new universe in 25 years from Bethesda Game Studios, the award-winning creators of The Elder Scrolls V: Skyrim and Fallout 4. In this next generation role-playing game set amongst the stars, create any character you want and explore with unparalleled freedom as you embark on an epic journey to answer humanity’s greatest mystery.',
@@ -87,6 +90,7 @@ export const products: Product[] = [
   },
   {
     id: 'PROD004',
+    moloni_id: 217868721,
     name: 'Forza Horizon 5',
     genre: 'Racing',
     description: 'Your ultimate Horizon adventure awaits! Explore the vibrant and ever-evolving open world landscapes of Mexico with limitless, fun driving action in hundreds of the world’s greatest cars. Lead breathtaking expeditions across a world of striking contrast and beauty.',
@@ -98,17 +102,19 @@ export const products: Product[] = [
   },
   {
     id: 'PROD005',
+    moloni_id: 217868723,
     name: 'EA Sports FC 24',
     genre: 'Sports',
     description: 'EA SPORTS FC™ 24 welcomes you to The World’s Game: the most true-to-football experience ever with HyperMotionV, PlayStyles optimised by Opta, and a revolutionised Frostbite™ Engine. It features an unparalleled roster of players, teams, and leagues.',
     stock_moloni: 300,
     stock_online: 250,
     price: 64.99,
-    imageUrl: 'https://image.api.playstation.com/vulcan/ap/rnd/202307/1010/82ac2542a17b07c875150c95a0247c4c114e59003666f7a6.png',
-    imageHint: 'soccer player',
+    imageUrl: gameImages.find(img => img.id === 'game-5')?.imageUrl || '',
+    imageHint: gameImages.find(img => img.id === 'game-5')?.imageHint || '',
   },
   {
     id: 'PROD006',
+    moloni_id: 217868728,
     name: 'The Witcher 3: Wild Hunt',
     genre: 'RPG',
     description: 'You are Geralt of Rivia, mercenary monster slayer. At your disposal is every tool of the trade: razor-sharp swords, lethal mixtures, stealthy crossbows, and powerful combat magic. Before you stands a war-torn, monster-infested continent you can explore at will. Your current contract? Tracking down the Child of Prophecy, a living weapon that can alter the shape of the world.',
@@ -120,6 +126,7 @@ export const products: Product[] = [
   },
   {
     id: 'PROD007',
+    moloni_id: 217868733,
     name: 'Red Dead Redemption 2',
     genre: 'Action-Adventure',
     description: 'Winner of over 175 Game of the Year Awards and recipient of over 250 perfect scores, Red Dead Redemption 2 is an epic tale of honor and loyalty at the dawn of the modern age. America, 1899. Arthur Morgan and the Van der Linde gang are outlaws on the run. With federal agents and the best bounty hunters in the nation massing on their heels, the gang must rob, steal and fight their way across the rugged heartland of America in order to survive.',
@@ -131,6 +138,7 @@ export const products: Product[] = [
   },
   {
     id: 'PROD008',
+    moloni_id: 217868738,
     name: 'Helldivers 2',
     genre: 'Shooter',
     description: 'The Galaxy’s Last Line of Offence. Enlist in the Helldivers and join the fight for freedom across a hostile galaxy in a fast, frantic, and ferocious third-person shooter. Urgent broadcast – Super Earth Armed Forces. Freedom. Peace. Democracy. Your Super Earth-born rights. The key pillars of our civilization. Are under attack from deadly alien civilizations, conspiring to destroy the Super Earth and its values.',
@@ -142,6 +150,7 @@ export const products: Product[] = [
   },
   {
     id: 'PROD009',
+    moloni_id: 217868741,
     name: 'Steam Gift Card 10€',
     genre: 'Gift Card',
     description: 'The easiest way to give the gift of games. Steam Gift Cards are an easy way to put money into your own Steam Wallet or give the perfect gift of games to your friend or family member.',
@@ -153,24 +162,26 @@ export const products: Product[] = [
   },
   {
     id: 'PROD010',
+    moloni_id: 217868742,
     name: 'Steam Gift Card 20€',
     genre: 'Gift Card',
     description: 'The easiest way to give the gift of games. Steam Gift Cards are an easy way to put money into your own Steam Wallet or give the perfect gift of games to your friend or family member.',
     stock_moloni: 1000,
     stock_online: 1000,
     price: 20.00,
-    imageUrl: gameImages.find(img => img.id === 'game-10')?.imageUrl || '',
+    imageUrl: gameImages.find(img => img.id === 'game-9')?.imageUrl || '',
     imageHint: 'gift card',
   },
   {
     id: 'PROD011',
+    moloni_id: 217868747,
     name: 'Steam Gift Card 50€',
     genre: 'Gift Card',
     description: 'The easiest way to give the gift of games. Steam Gift Cards are an easy way to put money into your own Steam Wallet or give the perfect gift of games to your friend or family member.',
     stock_moloni: 500,
     stock_online: 500,
     price: 50.00,
-    imageUrl: gameImages.find(img => img.id === 'game-11')?.imageUrl || '',
+    imageUrl: gameImages.find(img => img.id === 'game-9')?.imageUrl || '',
     imageHint: 'gift card',
   },
 ];

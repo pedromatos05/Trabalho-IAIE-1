@@ -12,24 +12,27 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { TicketPercent, Trophy, Minus, Plus, Star, Loader2 } from 'lucide-react'; // Adicionei Loader2
+import { TicketPercent, Trophy, Minus, Plus, Star, Loader2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
+// Importar a função de validação
+import { isProfileComplete } from '@/lib/utils';
 
 export default function CheckoutPage() {
   const { cart, removeFromCart, total, clearCart, updateQuantity } = useCart();
   const router = useRouter();
   const { toast } = useToast();
-  // 1. O addPoints e spendPoints agora são assíncronos (Promises)
-  const { user, loading, addPoints, spendPoints } = useAuth();
+  
+  // 1. CORREÇÃO: Importar também o 'token'
+  const { user, token, loading, addPoints, spendPoints } = useAuth();
   
   const [usePointsDiscount, setUsePointsDiscount] = useState(false);
-  // 2. Novo estado para bloquear o botão durante o processamento
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) {
+    // 2. CORREÇÃO: Verificar se existe user E token
+    if (!loading && (!user || !token)) {
       toast({
         variant: 'destructive',
         title: 'Login Necessário',
@@ -37,7 +40,7 @@ export default function CheckoutPage() {
       });
       router.push('/store/login');
     }
-  }, [user, loading, router, toast]);
+  }, [user, token, loading, router, toast]);
 
   const pointsToUseForDiscount = 100;
   const discountFromPoints = usePointsDiscount && user && user.points_saldo >= pointsToUseForDiscount ? total * 0.20 : 0;
@@ -45,52 +48,81 @@ export default function CheckoutPage() {
   const finalTotal = total - discountFromPoints;
   const pointsToGain = Math.floor(finalTotal);
 
-  // 3. A função agora é ASYNC para esperar pelo Supabase
   const handlePlaceOrder = async () => {
-    if (!user) return;
+    // 3. CORREÇÃO CRÍTICA: Bloqueia a função se não houver user OU token
+    if (!user || !token) {
+        router.push('/store/login');
+        return;
+    }
+
+    // 4. VERIFICAÇÃO DE PERFIL
+    if (!isProfileComplete(user)) {
+      toast({
+        variant: 'destructive',
+        title: 'Perfil Incompleto',
+        description: 'Para emitir a fatura, precisamos do seu NIF e Morada. Por favor, complete o seu perfil.',
+      });
+      router.push('/store/account/profile'); 
+      return;
+    }
     
-    setIsProcessing(true); // Bloqueia o botão
+    setIsProcessing(true);
 
     try {
-        let pointsSpent = 0;
+        // 5. PREPARAR OS DADOS
+        const simpleProductsList = cart.map(item => ({
+            id: item.product.moloni_id, 
+            name: item.product.name,
+            qty: item.quantity,
+            price: item.product.price
+        }));
 
-        // 3.1. Calcular custo em pontos (Produtos)
+        const payloadForN8N = {
+            email: user.email,
+            products: simpleProductsList
+        };
+
+        // 6. ENVIAR PARA A API (Adicionado Header de Autorização)
+        const apiResponse = await fetch('/api/checkout', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` // Envia o token para segurança extra
+            },
+            body: JSON.stringify(payloadForN8N)
+        });
+
+        if (!apiResponse.ok) {
+            throw new Error('Falha de conexão com o n8n');
+        }
+
+        // 7. LÓGICA DE PONTOS
+        let pointsSpent = 0;
         const pointsItems = cart.filter(item => item.isPointsPurchase);
+        
         if (pointsItems.length > 0) {
             const totalPointsCost = pointsItems.reduce((acc, item) => acc + Math.floor(item.product.price * 50), 0);
             if (user.points_saldo >= totalPointsCost) {
                 pointsSpent += totalPointsCost;
             } else {
-                toast({
-                    variant: 'destructive',
-                    title: 'Erro na Compra',
-                    description: 'Pontos insuficientes para os itens selecionados.',
-                });
+                toast({ variant: 'destructive', title: 'Erro', description: 'Pontos insuficientes.' });
                 setIsProcessing(false);
                 return; 
             }
         }
         
-        // 3.2. Calcular custo em pontos (Desconto)
         if (usePointsDiscount) {
             pointsSpent += pointsToUseForDiscount;
         }
 
-        // 3.3. Executar transações (AWAIT é crucial aqui)
-        // Primeiro gastamos os pontos
-        if (pointsSpent > 0) {
-            await spendPoints(pointsSpent);
-        }
+        // Como verificámos (!user || !token) no início, estas chamadas são seguras agora
+        if (pointsSpent > 0) await spendPoints(pointsSpent);
+        if (pointsToGain > 0) await addPoints(pointsToGain);
         
-        // Depois damos os pontos novos (se houver)
-        if (pointsToGain > 0) {
-            await addPoints(pointsToGain);
-        }
-        
-        // 4. Sucesso!
+        // 8. SUCESSO
         toast({
             title: 'Compra Realizada!',
-            description: `Obrigado pela sua compra. Ganhou ${pointsToGain} pontos!`,
+            description: `Pedido enviado! Ganhou ${pointsToGain} pontos.`,
         });
         
         clearCart();
@@ -100,18 +132,21 @@ export default function CheckoutPage() {
         console.error("Erro no checkout:", error);
         toast({
             variant: 'destructive',
-            title: 'Erro ao processar',
-            description: 'Ocorreu um erro ao comunicar com o servidor. Tente novamente.',
+            title: 'Erro',
+            description: 'Não foi possível processar o pedido.',
         });
     } finally {
-        setIsProcessing(false); // Desbloqueia o botão (se algo falhar)
+        setIsProcessing(false);
     }
   };
   
-  if (loading || !user) {
+  // 9. CORREÇÃO VISUAL: Se não houver token, não mostra a página
+  if (loading || !user || !token) {
     return (
         <div className="container mx-auto px-4 md:px-6 py-12 text-center">
-            <p>A verificar autenticação...</p>
+             <p className="flex items-center justify-center gap-2">
+                <Loader2 className="animate-spin h-5 w-5" /> A verificar autenticação...
+            </p>
         </div>
     );
   }
@@ -133,7 +168,7 @@ export default function CheckoutPage() {
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">Nome</Label>
-                    <Input id="name" defaultValue={`${user.name}`} disabled /> {/* Ajustei para user.name */}
+                    <Input id="name" defaultValue={`${user.name}`} disabled />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
@@ -141,8 +176,9 @@ export default function CheckoutPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="address">Morada</Label>
-                  <Input id="address" placeholder="Insira a sua morada..." />
+                  <Label htmlFor="address">Morada de Entrega/Faturação</Label>
+                  <Input id="address" value={user.address || ''} placeholder="Complete no seu perfil..." disabled />
+                  <p className="text-xs text-muted-foreground">Para alterar a morada ou NIF, vá ao seu <Link href="/store/account/profile" className="underline text-primary">Perfil</Link>.</p>
                 </div>
               </div>
 
@@ -180,14 +216,13 @@ export default function CheckoutPage() {
                 {cart.length > 0 ? cart.map(item => (
                   <div key={item.product.id} className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      {/* Ajusta o src da imagem se necessário */}
                       <div className="relative h-16 w-16 overflow-hidden rounded-md border">
-                         <Image 
+                          <Image 
                             src={item.product.imageUrl || '/placeholder.png'} 
                             alt={item.product.name} 
                             fill
                             className="object-cover"
-                         />
+                          />
                       </div>
                       <div>
                         <p className="font-medium">{item.product.name}</p>
@@ -270,8 +305,8 @@ export default function CheckoutPage() {
                             disabled={user.points_saldo < pointsToUseForDiscount || total === 0 || hasPointsPurchase || isProcessing}
                         />
                     </div>
-                     {hasPointsPurchase && <p className="text-xs text-amber-500">O desconto de 20% não pode ser combinado com uma compra direta por pontos.</p>}
-                     <p className="text-xs text-muted-foreground">Outras recompensas podem ser resgatadas na <Link href="/store/points" className="underline">Loja de Pontos</Link>.</p>
+                      {hasPointsPurchase && <p className="text-xs text-amber-500">O desconto de 20% não pode ser combinado com uma compra direta por pontos.</p>}
+                      <p className="text-xs text-muted-foreground">Outras recompensas podem ser resgatadas na <Link href="/store/points" className="underline">Loja de Pontos</Link>.</p>
                 </CardContent>
             </Card>
         </div>
