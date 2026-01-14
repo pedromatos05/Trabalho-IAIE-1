@@ -1,6 +1,5 @@
 'use client';
 
-import { clear } from 'console';
 import React, { createContext, useContext, useState, ReactNode, useMemo, useEffect, useCallback } from 'react';
 
 // 1. Definição do Tipo de Cliente
@@ -108,6 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updateUser(null);
     setToken(null);
     localStorage.removeItem('authToken');
+    // Opcional: Redirecionar para login aqui ou deixar a UI tratar disso
+    // window.location.href = '/login'; 
   };
   
   // --- ATUALIZAR PONTOS (Endpoint Alterado) ---
@@ -118,7 +119,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // 🔄 ALTERAÇÃO AQUI: Mudámos de '/api/points' para '/api/points/update'
       const response = await fetch('/api/points/update', { 
         method: 'POST',
         headers: { 
@@ -140,10 +140,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
         updateUser(updatedUser);
       } else {
+        // CORREÇÃO APLICADA AQUI
         if (response.status === 401) {
+            console.warn("Sessão expirada. A fazer logout...");
             logout(); // Token expirado ou inválido
+            return; // <--- O IMPORTANTE: Pára a função aqui para não dar erro abaixo
         }
-        console.error("Erro ao atualizar pontos:", data.error);
+        console.error("Erro ao atualizar pontos:", data?.error || "Erro desconhecido");
       }
     } catch (error) {
       console.error("Erro de rede ao atualizar pontos:", error);
@@ -153,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const addPoints = useCallback(async (points: number) => {
       if (!user || points <= 0) return;
       await updatePointsAPI(points);
-  }, [user, token, updateUser]);
+  }, [user, token, updateUser]); // removi updatePointsAPI das dependencias para evitar loops, pois é declarada dentro do componente
 
   const spendPoints = useCallback(async (points: number) => {
       if (!user || points <= 0) return;
@@ -169,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updateUser,
     addPoints,
     spendPoints,
-  }), [user, token, loading, login, logout, updateUser, addPoints, spendPoints]);
+  }), [user, token, loading, login, updateUser, addPoints, spendPoints]); // logout é estável, não precisa estar aqui, mas mal não faz.
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

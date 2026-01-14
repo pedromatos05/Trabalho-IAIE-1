@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -9,8 +8,6 @@ import {
 import {
   LayoutGrid,
   Box,
-  ShoppingCart,
-  Users,
   Settings,
   Truck,
 } from 'lucide-react';
@@ -20,8 +17,7 @@ import Link from 'next/link';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutGrid },
   { href: '/dashboard/inventory', label: 'Inventory', icon: Box },
-  { href: '/dashboard/orders', label: 'Orders', icon: ShoppingCart },
-  { href: '/dashboard/customers', label: 'Customers', icon: Users },
+  // Orders removido daqui
   { href: '/dashboard/suppliers', label: 'Suppliers', icon: Truck },
 ];
 
